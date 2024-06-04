@@ -21,31 +21,44 @@ const server = net.createServer((socket) => {
 
     if (path.startsWith('/files/')) {
       const filename = path.split('/files/')[1];
-      const file = Bun.file(`${values.directory}/${filename}`);
+      const filePath = `${values.directory}/${filename}`;
 
-      file.exists().then((exists) => {
-        if (!exists) {
-          socket.write(createResponse({ statusCode: '404 Not Found' }));
-          socket.end();
-          return;
-        }
+      if (method === 'GET') {
+        const file = Bun.file(filePath);
 
-        file.text().then((text) => {
-          socket.write(
-            createResponse({
-              headers: {
-                'Content-Type': 'application/octet-stream',
-                'Content-Length': file.size.toString(),
-              },
-              statusCode: '200 OK',
-              body: text,
-            })
-          );
+        file.exists().then((exists) => {
+          if (!exists) {
+            socket.write(createResponse({ statusCode: '404 Not Found' }));
+            socket.end();
+            return;
+          }
+
+          file.text().then((text) => {
+            socket.write(
+              createResponse({
+                headers: {
+                  'Content-Type': 'application/octet-stream',
+                  'Content-Length': file.size.toString(),
+                },
+                statusCode: '200 OK',
+                body: text,
+              })
+            );
+            socket.end();
+          });
+        });
+
+        return;
+      } else if (method === 'POST') {
+        const body = request[request.length - 1];
+
+        Bun.write(filePath, body).then(() => {
+          socket.write(createResponse({ statusCode: '201 Created' }));
           socket.end();
         });
-      });
 
-      return;
+        return;
+      }
     }
 
     if (path.includes('/user-agent')) {
