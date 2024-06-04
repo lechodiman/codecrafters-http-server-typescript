@@ -73,14 +73,16 @@ const server = net.createServer((socket) => {
       const supportedEncodings = new Set(['gzip']);
 
       const acceptEncoding = req.headers['Accept-Encoding'];
+      const encodings = acceptEncoding ? acceptEncoding.split(', ') : [];
+      const matchingEncoding = encodings.find((encoding) =>
+        supportedEncodings.has(encoding)
+      );
 
       return res
         .status(200)
         .headers({
           'Content-Type': 'text/plain',
-          ...(supportedEncodings.has(acceptEncoding)
-            ? { 'Content-Encoding': acceptEncoding }
-            : {}),
+          ...(matchingEncoding ? { 'Content-Encoding': matchingEncoding.trim() } : {}),
         })
         .body(echoStr)
         .send();
