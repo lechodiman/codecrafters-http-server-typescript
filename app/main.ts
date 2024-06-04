@@ -1,5 +1,6 @@
 import * as net from 'net';
 import { parseArgs } from 'util';
+import * as zlib from 'zlib';
 
 const { values } = parseArgs({
   args: Bun.argv,
@@ -78,13 +79,26 @@ const server = net.createServer((socket) => {
         supportedEncodings.has(encoding)
       );
 
+      if (!matchingEncoding) {
+        return res
+          .status(200)
+          .headers({
+            'Content-Type': 'text/plain',
+          })
+          .body(echoStr)
+          .send();
+      }
+
+      const zipped = zlib.gzipSync(echoStr);
+
       return res
         .status(200)
         .headers({
           'Content-Type': 'text/plain',
-          ...(matchingEncoding ? { 'Content-Encoding': matchingEncoding.trim() } : {}),
+          'Content-Encoding': matchingEncoding.trim(),
+          'Content-Length': zipped.length.toString(),
         })
-        .body(echoStr)
+        .body(zipped)
         .send();
     }
 
@@ -147,7 +161,7 @@ class Response {
 
   private requestLine: string;
   private _headers: { [key: string]: string };
-  private _body: string;
+  private _body: string | Buffer;
 
   constructor(private socket: net.Socket) {
     this.socket = socket;
@@ -166,7 +180,7 @@ class Response {
     return this;
   }
 
-  body(body: string) {
+  body(body: string | Buffer) {
     this._body = body;
 
     if (!this._headers['Content-Length']) {
@@ -187,9 +201,9 @@ class Response {
   send() {
     const headersString = this.parseHeaders();
 
-    this.socket.write(
-      this.requestLine + '\r\n' + headersString + '\r\n\r\n' + this._body
-    );
+    this.socket.write(this.requestLine + '\r\n' + headersString + '\r\n\r\n');
+    this.socket.write(this._body);
+
     this.socket.end();
   }
 }
