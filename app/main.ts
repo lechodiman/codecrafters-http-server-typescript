@@ -14,10 +14,10 @@ const { values } = parseArgs({
 
 const server = net.createServer((socket) => {
   socket.on('data', (data) => {
-    const request = data.toString().split('\r\n');
-    const headers = getRequestHeaders(request);
-    const requestLine = request[0];
-    const [method, path, version] = requestLine.split(' ');
+    const req = new Request(data.toString());
+
+    const method = req.method;
+    const path = req.path;
 
     if (path.startsWith('/files/')) {
       const filename = path.split('/files/')[1];
@@ -50,7 +50,7 @@ const server = net.createServer((socket) => {
 
         return;
       } else if (method === 'POST') {
-        const body = request[request.length - 1];
+        const body = req.body;
 
         Bun.write(filePath, body).then(() => {
           socket.write(createResponse({ statusCode: '201 Created' }));
@@ -62,7 +62,7 @@ const server = net.createServer((socket) => {
     }
 
     if (path.includes('/user-agent')) {
-      const userAgent = headers['User-Agent'];
+      const userAgent = req.headers['User-Agent'];
       socket.write(
         createResponse({
           headers: {
@@ -78,10 +78,17 @@ const server = net.createServer((socket) => {
 
     if (path.includes('/echo')) {
       const echoStr = path.split('/echo/')[1];
+      const supportedEncodings = new Set(['gzip']);
+
+      const acceptEncoding = req.headers['Accept-Encoding'];
+
       socket.write(
         createResponse({
           headers: {
             'Content-Type': 'text/plain',
+            ...(supportedEncodings.has(acceptEncoding)
+              ? { 'Content-Encoding': acceptEncoding }
+              : {}),
           },
           statusCode: '200 OK',
           body: echoStr,
@@ -128,14 +135,40 @@ function createResponse({
   return `HTTP/1.1 ${statusCode}\r\n${responseHeaders}\r\n\r\n${body}`;
 }
 
-function getRequestHeaders(request: string[]) {
-  const headers = request.slice(1, -2); // last two elements are empty strings
-  const headersObject: { [key: string]: string } = {};
+class Request {
+  constructor(private request: string) {
+    this.request = request;
+  }
 
-  headers.forEach((header) => {
-    const [key, value] = header.split(': ');
-    headersObject[key] = value;
-  });
+  get headers() {
+    const headers = this.lines.slice(1, -2); // last two elements are empty strings
+    const headersObject: { [key: string]: string } = {};
 
-  return headersObject;
+    headers.forEach((header) => {
+      const [key, value] = header.split(': ');
+      headersObject[key] = value;
+    });
+
+    return headersObject;
+  }
+
+  get requestLine() {
+    return this.lines[0];
+  }
+
+  get method() {
+    return this.requestLine.split(' ')[0];
+  }
+
+  get path() {
+    return this.requestLine.split(' ')[1];
+  }
+
+  get body() {
+    return this.lines[this.lines.length - 1];
+  }
+
+  private get lines() {
+    return this.request.split('\r\n');
+  }
 }
