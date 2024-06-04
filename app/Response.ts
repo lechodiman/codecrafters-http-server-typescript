@@ -1,12 +1,12 @@
 import * as net from 'net';
 
-export class Response {
-  private STATUS_CODES = {
-    200: '200 OK',
-    201: '201 Created',
-    404: '404 Not Found',
-  } as const;
+const STATUS_CODES = {
+  200: '200 OK',
+  201: '201 Created',
+  404: '404 Not Found',
+} as const;
 
+export class Response {
   private requestLine: string;
   private _headers: { [key: string]: string };
   private _body: string | Buffer | Uint8Array;
@@ -18,8 +18,8 @@ export class Response {
     this._body = '';
   }
 
-  status(code: keyof typeof this.STATUS_CODES) {
-    this.requestLine = `HTTP/1.1 ${this.STATUS_CODES[code]}`;
+  status(code: keyof typeof STATUS_CODES) {
+    this.requestLine = `HTTP/1.1 ${STATUS_CODES[code]}`;
     return this;
   }
 

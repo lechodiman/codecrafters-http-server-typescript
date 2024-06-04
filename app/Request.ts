@@ -1,7 +1,5 @@
 export class Request {
-  constructor(private request: string) {
-    this.request = request;
-  }
+  constructor(private request: string) {}
 
   get headers() {
     const headers = this.lines.slice(1, -2); // last two elements are empty strings
