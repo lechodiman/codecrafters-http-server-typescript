@@ -9,7 +9,6 @@ const server = net.createServer((socket) => {
 
     if (path.includes('/user-agent')) {
       const userAgent = headers['User-Agent'];
-      console.log('🚀 ~ socket.on ~ userAgent:', userAgent);
       socket.write(
         createResponse({
           headers: {
@@ -25,7 +24,6 @@ const server = net.createServer((socket) => {
 
     if (path.includes('/echo')) {
       const echoStr = path.split('/echo/')[1];
-      console.log(echoStr);
       socket.write(
         createResponse({
           headers: {
