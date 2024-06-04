@@ -1,6 +1,5 @@
 import * as net from 'net';
 import { parseArgs } from 'util';
-import * as zlib from 'zlib';
 
 const { values } = parseArgs({
   args: Bun.argv,
@@ -89,7 +88,7 @@ const server = net.createServer((socket) => {
           .send();
       }
 
-      const zipped = zlib.gzipSync(echoStr);
+      const zipped = Bun.gzipSync(echoStr);
 
       return res
         .status(200)
@@ -161,7 +160,7 @@ class Response {
 
   private requestLine: string;
   private _headers: { [key: string]: string };
-  private _body: string | Buffer;
+  private _body: string | Buffer | Uint8Array;
 
   constructor(private socket: net.Socket) {
     this.socket = socket;
@@ -180,7 +179,7 @@ class Response {
     return this;
   }
 
-  body(body: string | Buffer) {
+  body(body: string | Uint8Array | Buffer) {
     this._body = body;
 
     if (!this._headers['Content-Length']) {
