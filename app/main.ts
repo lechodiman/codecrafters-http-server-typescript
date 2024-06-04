@@ -15,6 +15,7 @@ const { values } = parseArgs({
 const server = net.createServer((socket) => {
   socket.on('data', (data) => {
     const req = new Request(data.toString());
+    const res = new Response(socket);
 
     const method = req.method;
     const path = req.path;
@@ -28,23 +29,18 @@ const server = net.createServer((socket) => {
 
         file.exists().then((exists) => {
           if (!exists) {
-            socket.write(createResponse({ statusCode: '404 Not Found' }));
-            socket.end();
-            return;
+            return res.status(404).send();
           }
 
           file.text().then((text) => {
-            socket.write(
-              createResponse({
-                headers: {
-                  'Content-Type': 'application/octet-stream',
-                  'Content-Length': file.size.toString(),
-                },
-                statusCode: '200 OK',
-                body: text,
+            return res
+              .status(200)
+              .headers({
+                'Content-Type': 'application/octet-stream',
+                'Content-Length': file.size.toString(),
               })
-            );
-            socket.end();
+              .body(text)
+              .send();
           });
         });
 
@@ -53,8 +49,7 @@ const server = net.createServer((socket) => {
         const body = req.body;
 
         Bun.write(filePath, body).then(() => {
-          socket.write(createResponse({ statusCode: '201 Created' }));
-          socket.end();
+          return res.status(201).send();
         });
 
         return;
@@ -63,17 +58,14 @@ const server = net.createServer((socket) => {
 
     if (path.includes('/user-agent')) {
       const userAgent = req.headers['User-Agent'];
-      socket.write(
-        createResponse({
-          headers: {
-            'Content-Type': 'text/plain',
-          },
-          statusCode: '200 OK',
-          body: userAgent,
+
+      return res
+        .status(200)
+        .headers({
+          'Content-Type': 'text/plain',
         })
-      );
-      socket.end();
-      return;
+        .body(userAgent)
+        .send();
     }
 
     if (path.includes('/echo')) {
@@ -82,58 +74,29 @@ const server = net.createServer((socket) => {
 
       const acceptEncoding = req.headers['Accept-Encoding'];
 
-      socket.write(
-        createResponse({
-          headers: {
-            'Content-Type': 'text/plain',
-            ...(supportedEncodings.has(acceptEncoding)
-              ? { 'Content-Encoding': acceptEncoding }
-              : {}),
-          },
-          statusCode: '200 OK',
-          body: echoStr,
+      return res
+        .status(200)
+        .headers({
+          'Content-Type': 'text/plain',
+          ...(supportedEncodings.has(acceptEncoding)
+            ? { 'Content-Encoding': acceptEncoding }
+            : {}),
         })
-      );
-      socket.end();
-      return;
+        .body(echoStr)
+        .send();
     }
 
     if (path !== '/') {
-      socket.write(createResponse({ statusCode: '404 Not Found' }));
-      socket.end();
-      return;
+      return res.status(404).send();
     }
 
-    socket.write(createResponse({ statusCode: '200 OK' }));
-    socket.end();
+    return res.status(200).send();
   });
 });
 
 server.listen(4221, 'localhost', () => {
   console.log('Server is running on port 4221');
 });
-
-function createResponse({
-  body,
-  headers = {},
-  statusCode,
-}: {
-  headers?: {
-    [key: string]: string;
-  };
-  statusCode: string;
-  body?: string;
-}) {
-  const headersArray = Object.entries(headers).map(([key, value]) => `${key}: ${value}`);
-
-  if (body && !headers['Content-Length']) {
-    headersArray.push('Content-Length: ' + body.length.toString());
-  }
-
-  const responseHeaders = headersArray.join('\r\n');
-
-  return `HTTP/1.1 ${statusCode}\r\n${responseHeaders}\r\n\r\n${body}`;
-}
 
 class Request {
   constructor(private request: string) {
@@ -170,5 +133,61 @@ class Request {
 
   private get lines() {
     return this.request.split('\r\n');
+  }
+}
+
+class Response {
+  private STATUS_CODES = {
+    200: '200 OK',
+    201: '201 Created',
+    404: '404 Not Found',
+  } as const;
+
+  private requestLine: string;
+  private _headers: { [key: string]: string };
+  private _body: string;
+
+  constructor(private socket: net.Socket) {
+    this.socket = socket;
+    this.requestLine = 'HTTP/1.1 200 OK';
+    this._headers = {};
+    this._body = '';
+  }
+
+  status(code: keyof typeof this.STATUS_CODES) {
+    this.requestLine = `HTTP/1.1 ${this.STATUS_CODES[code]}`;
+    return this;
+  }
+
+  headers(headers: { [key: string]: string }) {
+    this._headers = { ...this._headers, ...headers };
+    return this;
+  }
+
+  body(body: string) {
+    this._body = body;
+
+    if (!this._headers['Content-Length']) {
+      this.headers({
+        'Content-Length': body.length.toString(),
+      });
+    }
+
+    return this;
+  }
+
+  private parseHeaders() {
+    return Object.entries(this._headers)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\r\n');
+  }
+
+  send() {
+    const headersString = this.parseHeaders();
+
+    this.socket.write(
+      this.requestLine + '\r\n' + headersString + '\r\n\r\n' + this._body
+    );
+    this.socket.end();
   }
 }
