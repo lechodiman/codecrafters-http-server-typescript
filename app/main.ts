@@ -1,4 +1,16 @@
 import * as net from 'net';
+import { parseArgs } from 'util';
+
+const { values } = parseArgs({
+  args: Bun.argv,
+  options: {
+    directory: {
+      type: 'string',
+    },
+  },
+  strict: true,
+  allowPositionals: true,
+});
 
 const server = net.createServer((socket) => {
   socket.on('data', (data) => {
@@ -6,6 +18,35 @@ const server = net.createServer((socket) => {
     const headers = getRequestHeaders(request);
     const requestLine = request[0];
     const [method, path, version] = requestLine.split(' ');
+
+    if (path.startsWith('/files/')) {
+      const filename = path.split('/files/')[1];
+      const file = Bun.file(`${values.directory}/${filename}`);
+
+      file.exists().then((exists) => {
+        if (!exists) {
+          socket.write(createResponse({ statusCode: '404 Not Found' }));
+          socket.end();
+          return;
+        }
+
+        file.text().then((text) => {
+          socket.write(
+            createResponse({
+              headers: {
+                'Content-Type': 'application/octet-stream',
+                'Content-Length': file.size.toString(),
+              },
+              statusCode: '200 OK',
+              body: text,
+            })
+          );
+          socket.end();
+        });
+      });
+
+      return;
+    }
 
     if (path.includes('/user-agent')) {
       const userAgent = headers['User-Agent'];
@@ -65,7 +106,7 @@ function createResponse({
 }) {
   const headersArray = Object.entries(headers).map(([key, value]) => `${key}: ${value}`);
 
-  if (body) {
+  if (body && !headers['Content-Length']) {
     headersArray.push('Content-Length: ' + body.length.toString());
   }
 
