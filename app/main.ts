@@ -14,20 +14,19 @@ const server = net.createServer((socket) => {
     const res = new Response(socket);
 
     const path = req.path;
-    const method = req.method;
 
     if (path.startsWith('/files/')) {
-      if (method === 'GET') {
-        handleGetFiles(req, res);
+      if (req.method === 'GET') {
+        return handleGetFiles(req, res);
       }
 
-      if (method === 'POST') {
-        handlePostFiles(req, res);
+      if (req.method === 'POST') {
+        return handlePostFiles(req, res);
       }
     } else if (path.startsWith('/user-agent')) {
-      handleUserAgent(req, res);
+      return handleUserAgent(req, res);
     } else if (path.startsWith('/echo')) {
-      handleEcho(req, res);
+      return handleEcho(req, res);
     } else if (path === '/') {
       return res.status(200).send();
     } else {
