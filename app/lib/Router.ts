@@ -8,7 +8,7 @@ export class Router {
     };
   };
 
-  constructor(private req: Request, private res: Response) {
+  constructor() {
     this.routes = {};
   }
 
@@ -31,13 +31,13 @@ export class Router {
     this.routes[method][path] = handler;
   }
 
-  handle() {
-    const method = this.req.method;
-    const path = this.req.path;
+  handle(req: Request, res: Response) {
+    const method = req.method;
+    const path = req.path;
 
     // Check for exact match
     if (this.routes[method] && this.routes[method][path]) {
-      this.routes[method][path](this.req, this.res);
+      this.routes[method][path](req, res);
       return;
     }
 
@@ -47,18 +47,17 @@ export class Router {
       if (registeredPath === '/' && path !== '/') continue;
 
       if (path.startsWith(registeredPath)) {
-        this.routes[method][registeredPath](this.req, this.res);
+        this.routes[method][registeredPath](req, res);
         return;
       }
     }
 
     // Check for wildcard match
     if (this.routes[method] && this.routes[method]['*']) {
-      this.routes[method]['*'](this.req, this.res);
+      this.routes[method]['*'](req, res);
       return;
     }
 
-    // If no route is matched, return a 404 response
-    return this.res.status(404).send();
+    return res.status(404).send();
   }
 }

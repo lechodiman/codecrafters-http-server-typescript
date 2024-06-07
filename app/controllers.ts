@@ -1,6 +1,6 @@
 import { parseArgs } from 'util';
-import { Request } from './Request';
-import { Response } from './Response';
+import { Request } from './lib/Request';
+import { Response } from './lib/Response';
 
 const { values } = parseArgs({
   args: Bun.argv,
