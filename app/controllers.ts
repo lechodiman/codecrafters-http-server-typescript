@@ -47,7 +47,7 @@ export function handlePostFiles(req: Request, res: Response) {
 }
 
 export function handleUserAgent(req: Request, res: Response) {
-  const userAgent = req.headers['User-Agent'];
+  const userAgent = req.headers['User-Agent'] || req.headers['user-agent'];
 
   return res
     .status(200)
@@ -62,7 +62,8 @@ export function handleEcho(req: Request, res: Response) {
   const echoStr = req.path.split('/echo/')[1];
   const supportedEncodings = new Set(['gzip']);
 
-  const acceptEncoding = req.headers['Accept-Encoding'];
+  const acceptEncoding = req.headers['Accept-Encoding'] || req.headers['accept-encoding'];
+
   const encodings = acceptEncoding ? acceptEncoding.split(', ') : [];
   const matchingEncoding = encodings.find((encoding) => supportedEncodings.has(encoding));
 
