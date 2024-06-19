@@ -1,35 +1,31 @@
 export class Request {
-  constructor(private request: string) {}
+  public method: string;
+  public path: string;
+  public body: string;
+  public headers: { [key: string]: string };
 
-  get headers() {
-    const headers = this.lines.slice(1, -2); // last two elements are empty strings
-    const headersObject: { [key: string]: string } = {};
+  private requestLine: string;
+  private lines: string[];
 
-    headers.forEach((header) => {
-      const [key, value] = header.split(': ');
-      headersObject[key] = value;
-    });
+  constructor(private request: string) {
+    this.lines = this.request.split('\r\n');
+    this.requestLine = this.lines[0];
+    this.method = this.requestLine.split(' ')[0];
+    this.path = this.requestLine.split(' ')[1];
+    this.body = this.lines[this.lines.length - 1];
 
-    return headersObject;
+    this.headers = parseHeaders(this.lines);
   }
+}
 
-  get requestLine() {
-    return this.lines[0];
-  }
+function parseHeaders(lines: string[]) {
+  const headers = lines.slice(1, -2); // last two elements are empty strings
+  const headersObject: { [key: string]: string } = {};
 
-  get method() {
-    return this.requestLine.split(' ')[0];
-  }
+  headers.forEach((header) => {
+    const [key, value] = header.split(': ');
+    headersObject[key] = value;
+  });
 
-  get path() {
-    return this.requestLine.split(' ')[1];
-  }
-
-  get body() {
-    return this.lines[this.lines.length - 1];
-  }
-
-  private get lines() {
-    return this.request.split('\r\n');
-  }
+  return headersObject;
 }

@@ -40,12 +40,6 @@ export class Response {
     return this;
   }
 
-  private parseHeaders() {
-    return Object.entries(this._headers)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join('\r\n');
-  }
-
   send() {
     const headersString = this.parseHeaders();
 
@@ -53,5 +47,11 @@ export class Response {
     this.socket.write(this._body);
 
     this.socket.end();
+  }
+
+  private parseHeaders() {
+    return Object.entries(this._headers)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\r\n');
   }
 }
